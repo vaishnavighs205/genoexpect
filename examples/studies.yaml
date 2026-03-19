@@ -1,0 +1,30 @@
+studies:
+  PRJNA123456:
+    organism: homo_sapiens
+    genome: GRCh38
+    assay_type: rna_seq
+    library_layout: paired
+    read_length_nominal: 150
+    n_samples_expected: 24
+
+    steps:
+      fastq_qc:
+        metrics:
+          n_reads:
+            min: 30000000
+          pct_n_bases:
+            max: 5.0
+
+      alignment:
+        metrics:
+          alignment_rate:
+            min: 80.0
+          uniquely_mapped_rate:
+            min: 70.0
+          n_reads:
+            min: 30000000
+
+      counting:
+        metrics:
+          assigned_rate:
+            min: 60.0
