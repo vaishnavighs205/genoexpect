@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>genoexpect · live</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e14;
+    --surface: #11151f;
+    --border: #1e2535;
+    --accent: #00e5a0;
+    --accent2: #3d7fff;
+    --warn: #f5a623;
+    --fail: #ff4d6d;
+    --pass: #00e5a0;
+    --text: #d4dbe8;
+    --muted: #5a6580;
+    --code-bg: #0d1117;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  header {
+    margin-bottom: 48px;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 800;
+    line-height: 1.1;
+    color: #fff;
+    margin-bottom: 12px;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  /* Search panel */
+  .search-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 32px;
+  }
+
+  .search-label {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    color: #fff;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  .btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 24px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { background: #00ffb3; transform: translateY(-1px); }
+  .btn:disabled { background: var(--muted); cursor: not-allowed; transform: none; }
+
+  .examples {
+    margin-top: 14px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .examples span {
+    color: var(--accent2);
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition: text-decoration-color 0.2s;
+  }
+
+  .examples span:hover { text-decoration-color: var(--accent2); }
+
+  /* Status bar */
+  .status-bar {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 24px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .status-bar.visible { display: flex; }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Results */
+  #results { display: none; }
+  #results.visible { display: block; }
+
+  .section-header {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Study card */
+  .study-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .study-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 6px;
+  }
+
+  .study-accession {
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .meta-item {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+
+  .meta-key {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .meta-val {
+    font-size: 13px;
+    color: #fff;
+    font-weight: 500;
+  }
+
+  /* Thresholds */
+  .threshold-editor {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .threshold-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .threshold-desc {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+
+  .threshold-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .threshold-table th {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .threshold-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(30,37,53,0.5);
+    font-size: 12px;
+  }
+
+  .threshold-table tr:last-child td { border-bottom: none; }
+
+  .threshold-table input {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: #fff;
+    width: 90px;
+    outline: none;
+  }
+
+  .threshold-table input:focus { border-color: var(--accent); }
+
+  /* Sample table */
+  .sample-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+  }
+
+  .sample-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .sample-table th {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .sample-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(30,37,53,0.5);
+    white-space: nowrap;
+  }
+
+  .sample-table tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+  }
+
+  .badge-pass { background: rgba(0,229,160,0.12); color: var(--pass); }
+  .badge-warn { background: rgba(245,166,35,0.12); color: var(--warn); }
+  .badge-fail { background: rgba(255,77,109,0.12); color: var(--fail); }
+  .badge-na   { background: rgba(90,101,128,0.12); color: var(--muted); }
+
+  /* YAML output */
+  .yaml-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+
+  .yaml-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .yaml-filename {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .yaml-code {
+    padding: 20px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre;
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .yaml-key   { color: #7ec8e3; }
+  .yaml-val   { color: #a8e090; }
+  .yaml-num   { color: #ffb347; }
+  .yaml-comment { color: var(--muted); }
+
+  .run-check-btn {
+    background: none;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+
+  .run-check-btn:hover { background: rgba(0,229,160,0.08); }
+
+  .error-box {
+    background: rgba(255,77,109,0.08);
+    border: 1px solid rgba(255,77,109,0.3);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 12px;
+    color: var(--fail);
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  .error-box.visible { display: block; }
+
+  .summary-banner {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .summary-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .chip-pass { background: rgba(0,229,160,0.08); border: 1px solid rgba(0,229,160,0.2); color: var(--pass); }
+  .chip-warn { background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.2); color: var(--warn); }
+  .chip-fail { background: rgba(255,77,109,0.08); border: 1px solid rgba(255,77,109,0.2); color: var(--fail); }
+
+  .tab-bar {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 16px;
+    background: var(--code-bg);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    width: fit-content;
+  }
+
+  .tab {
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.2s;
+    border: none;
+    background: none;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .tab.active { background: var(--surface); color: #fff; }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">genoexpect · live</div>
+    <h1>Auto-populate study<br><span>profiles from NCBI</span></h1>
+    <p class="subtitle">Enter any SRA/BioProject accession — study metadata is fetched live from NCBI, thresholds are inferred from assay type, and a validated YAML config is generated instantly.</p>
+  </header>
+
+  <div class="search-panel">
+    <div class="search-label">Study Accession</div>
+    <div class="search-row">
+      <input class="search-input" id="accInput" placeholder="PRJNA123456 · SRP123456 · ERP123456" type="text" />
+      <button class="btn" id="fetchBtn" onclick="fetchStudy()">Fetch Study</button>
+    </div>
+    <div class="examples">
+      Try: 
+      <span onclick="setEx('PRJNA279196')">PRJNA279196</span> · 
+      <span onclick="setEx('SRP040765')">SRP040765</span> · 
+      <span onclick="setEx('PRJNA237362')">PRJNA237362</span> · 
+      <span onclick="setEx('SRP130961')">SRP130961</span>
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="status-bar" id="statusBar">
+    <div class="spinner"></div>
+    <span id="statusMsg">Querying NCBI E-utilities...</span>
+  </div>
+
+  <div id="results">
+
+    <div class="section-header">Study Profile</div>
+    <div class="study-card" id="studyCard"></div>
+
+    <div class="section-header">Assay Thresholds</div>
+    <div class="threshold-editor">
+      <div class="threshold-title">QC Metric Expectations</div>
+      <div class="threshold-desc">Auto-inferred from assay type. Edit values then regenerate YAML.</div>
+      <table class="threshold-table" id="thresholdTable"></table>
+    </div>
+
+    <div class="section-header">Sample Runs</div>
+    <div class="sample-table-wrap">
+      <table class="sample-table" id="sampleTable"></table>
+    </div>
+
+    <div class="section-header">Generated YAML Config</div>
+    <div class="tab-bar">
+      <button class="tab active" onclick="switchTab('yaml')">studies.yaml</button>
+      <button class="tab" onclick="switchTab('cli')">CLI usage</button>
+      <button class="tab" onclick="switchTab('python')">Python usage</button>
+    </div>
+
+    <div id="tab-yaml" class="tab-content active">
+      <div class="yaml-block">
+        <div class="yaml-header">
+          <span class="yaml-filename">studies.yaml</span>
+          <button class="copy-btn" onclick="copyYaml()">Copy</button>
+        </div>
+        <div class="yaml-code" id="yamlOutput"></div>
+      </div>
+      <button class="run-check-btn" onclick="regenerateYaml()">↻ Regenerate with edited thresholds</button>
+    </div>
+
+    <div id="tab-cli" class="tab-content">
+      <div class="yaml-block">
+        <div class="yaml-header">
+          <span class="yaml-filename">bash</span>
+          <button class="copy-btn" onclick="copyCli()">Copy</button>
+        </div>
+        <div class="yaml-code" id="cliOutput"></div>
+      </div>
+    </div>
+
+    <div id="tab-python" class="tab-content">
+      <div class="yaml-block">
+        <div class="yaml-header">
+          <span class="yaml-filename">example.py</span>
+          <button class="copy-btn" onclick="copyPython()">Copy</button>
+        </div>
+        <div class="yaml-code" id="pythonOutput"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentStudy = null;
+let currentRuns = [];
+let thresholds = {};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function setEx(val) {
+  document.getElementById('accInput').value = val;
+}
+
+function showStatus(msg) {
+  const bar = document.getElementById('statusBar');
+  bar.classList.add('visible');
+  document.getElementById('statusMsg').textContent = msg;
+}
+
+function hideStatus() {
+  document.getElementById('statusBar').classList.remove('visible');
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = '⚠ ' + msg;
+  box.classList.add('visible');
+}
+
+function hideError() {
+  document.getElementById('errorBox').classList.remove('visible');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const names = ['yaml','cli','python'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── NCBI fetch pipeline ─────────────────────────────────────────────────────
+async function fetchStudy() {
+  const acc = document.getElementById('accInput').value.trim();
+  if (!acc) return;
+
+  hideError();
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('fetchBtn').disabled = true;
+
+  try {
+    showStatus('Resolving accession in NCBI SRA...');
+
+    // Step 1: esearch to get internal NCBI IDs
+    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=sra&term=${encodeURIComponent(acc)}&retmax=200&retmode=json`;
+    const searchResp = await fetch(searchUrl);
+    const searchData = await searchResp.json();
+    const ids = searchData.esearchresult?.idlist || [];
+
+    if (ids.length === 0) {
+      throw new Error(`No SRA records found for accession "${acc}". Try a BioProject (PRJNA…) or SRA Study (SRP…) accession.`);
+    }
+
+    showStatus(`Found ${ids.length} experiment(s). Fetching metadata...`);
+
+    // Step 2: esummary for experiment metadata (first batch)
+    const batchIds = ids.slice(0, 50).join(',');
+    const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=sra&id=${batchIds}&retmode=json`;
+    const summaryResp = await fetch(summaryUrl);
+    const summaryData = await summaryResp.json();
+
+    const result = summaryData.result;
+    const uids = result.uids;
+
+    // Step 3: Parse experiment records
+    const runs = [];
+    let studyTitle = acc;
+    let organism = 'unknown';
+    let assayType = 'unknown';
+    let platform = 'unknown';
+    let libraryLayout = 'unknown';
+    let studyId = acc;
+    let bioproject = acc;
+    let readLength = null;
+    let instrumentModel = '';
+    let totalSamples = ids.length;
+
+    for (const uid of uids) {
+      const rec = result[uid];
+      if (!rec || rec.error) continue;
+
+      // Parse the embedded ExpXml
+      const expXml = rec.expxml || '';
+      const runXml = rec.runs || '';
+
+      const getTag = (xml, tag) => {
+        const m = xml.match(new RegExp(`<${tag}[^>]*>([^<]*)</${tag}>`));
+        return m ? m[1].trim() : '';
+      };
+      const getAttr = (xml, tag, attr) => {
+        const m = xml.match(new RegExp(`<${tag}[^>]*${attr}="([^"]*)"`));
+        return m ? m[1].trim() : '';
+      };
+
+      if (runs.length === 0) {
+        studyTitle = rec.study_title || getAttr(expXml, 'Study', 'name') || acc;
+        organism = rec.organism || getTag(expXml, 'Organism') || 'unknown';
+        if (!organism || organism === 'unknown') {
+          const orgM = expXml.match(/taxid="\d+"[^>]*>([^<]+)</);
+          if (orgM) organism = orgM[1];
+        }
+        platform = getAttr(expXml, 'Platform', 'instrument_model') || rec.platform || 'ILLUMINA';
+        instrumentModel = getAttr(expXml, 'Platform', 'instrument_model') || '';
+        assayType = rec.library_strategy || getTag(expXml, 'LIBRARY_STRATEGY') || 'RNA-Seq';
+        libraryLayout = getTag(expXml, 'LIBRARY_LAYOUT') || (expXml.includes('PAIRED') ? 'paired' : 'single');
+        studyId = getAttr(expXml, 'Study', 'acc') || acc;
+        bioproject = rec.bioproject || studyId;
+      }
+
+      // Parse runs
+      const runMatches = [...runXml.matchAll(/acc="(SRR[^"]+)"[^>]*total_spots="([^"]*)"[^>]*total_bases="([^"]*)"/g)];
+      for (const m of runMatches) {
+        runs.push({
+          run: m[1],
+          spots: parseInt(m[2]) || 0,
+          bases: parseInt(m[3]) || 0,
+        });
+      }
+    }
+
+    // Infer read length from bases / spots
+    if (runs.length > 0) {
+      const totalSpots = runs.reduce((a, r) => a + r.spots, 0);
+      const totalBases = runs.reduce((a, r) => a + r.bases, 0);
+      if (totalSpots > 0) {
+        const avgRL = Math.round(totalBases / totalSpots);
+        const layout = libraryLayout.toLowerCase();
+        readLength = layout === 'paired' ? Math.round(avgRL / 2) : avgRL;
+        if (readLength > 500 || readLength < 10) readLength = 150;
+      }
+    }
+
+    // Normalise values
+    const assayNorm = normaliseAssay(assayType);
+    const orgNorm = normaliseOrganism(organism);
+    const layoutNorm = libraryLayout.toLowerCase().includes('paired') ? 'paired' : 'single';
+
+    currentStudy = {
+      accession: bioproject || studyId,
+      studyId,
+      title: studyTitle,
+      organism: orgNorm,
+      assay: assayNorm,
+      platform: platform.toLowerCase().replace(/\s+/g,'_'),
+      libraryLayout: layoutNorm,
+      readLength: readLength || 150,
+      nSamples: totalSamples,
+      instrument: instrumentModel,
+    };
+
+    currentRuns = runs;
+    thresholds = defaultThresholds(assayNorm);
+
+    hideStatus();
+    renderResults();
+
+  } catch (err) {
+    hideStatus();
+    showError(err.message || String(err));
+  }
+
+  document.getElementById('fetchBtn').disabled = false;
+}
+
+// ── Normalisation ───────────────────────────────────────────────────────────
+function normaliseAssay(raw) {
+  const r = (raw || '').toLowerCase();
+  if (r.includes('rna') || r === 'rna-seq' || r === 'transcriptomic') return 'rna_seq';
+  if (r.includes('chip') || r.includes('chip-seq')) return 'chip_seq';
+  if (r.includes('atac')) return 'atac_seq';
+  if (r.includes('wgs') || r.includes('whole genome')) return 'wgs';
+  if (r.includes('amplicon') || r.includes('16s') || r.includes('amplicon')) return 'amplicon';
+  if (r.includes('bisulfite') || r.includes('wgbs') || r.includes('methyl')) return 'wgbs';
+  return 'rna_seq';
+}
+
+function normaliseOrganism(raw) {
+  const r = (raw || '').toLowerCase();
+  if (r.includes('homo') || r.includes('human')) return 'homo_sapiens';
+  if (r.includes('mus') || r.includes('mouse')) return 'mus_musculus';
+  if (r.includes('rattus') || r.includes('rat')) return 'rattus_norvegicus';
+  if (r.includes('drosophila')) return 'drosophila_melanogaster';
+  if (r.includes('zebrafish') || r.includes('danio')) return 'danio_rerio';
+  if (r.includes('arabidopsis')) return 'arabidopsis_thaliana';
+  if (r.includes('yeast') || r.includes('saccharomyces')) return 'saccharomyces_cerevisiae';
+  if (r.includes('e. coli') || r.includes('escherichia')) return 'escherichia_coli';
+  return raw.toLowerCase().replace(/\s+/g, '_') || 'unknown';
+}
+
+function genomeFromOrganism(org) {
+  const map = {
+    homo_sapiens: 'GRCh38',
+    mus_musculus: 'GRCm39',
+    rattus_norvegicus: 'mRatBN7.2',
+    drosophila_melanogaster: 'dm6',
+    danio_rerio: 'GRCz11',
+    arabidopsis_thaliana: 'TAIR10',
+    saccharomyces_cerevisiae: 'R64',
+    escherichia_coli: 'ASM584v2',
+  };
+  return map[org] || 'unknown';
+}
+
+function defaultThresholds(assay) {
+  const base = {
+    rna_seq: {
+      alignment_rate:       { label: 'Alignment Rate (%)',        min: 80.0,  max: null },
+      uniquely_mapped_rate: { label: 'Uniquely Mapped Rate (%)',  min: 70.0,  max: null },
+      n_reads:              { label: 'Total Reads',               min: 20000000, max: null },
+      pct_mrna_bases:       { label: 'mRNA Bases (%)',            min: 50.0,  max: null },
+      median_cv_coverage:   { label: 'Median CV Coverage',        min: null,  max: 0.4 },
+    },
+    chip_seq: {
+      alignment_rate:       { label: 'Alignment Rate (%)',        min: 85.0,  max: null },
+      n_reads:              { label: 'Total Reads',               min: 10000000, max: null },
+      frip_score:           { label: 'FRiP Score',                min: 0.01,  max: null },
+      nrf:                  { label: 'NRF (Non-Redundant Fraction)', min: 0.7, max: null },
+    },
+    atac_seq: {
+      alignment_rate:       { label: 'Alignment Rate (%)',        min: 80.0,  max: null },
+      n_reads:              { label: 'Total Reads',               min: 25000000, max: null },
+      frip_score:           { label: 'FRiP Score',                min: 0.2,   max: null },
+      tss_enrichment:       { label: 'TSS Enrichment',            min: 6.0,   max: null },
+    },
+    wgs: {
+      alignment_rate:       { label: 'Alignment Rate (%)',        min: 90.0,  max: null },
+      mean_coverage:        { label: 'Mean Coverage (X)',         min: 30.0,  max: null },
+      pct_bases_20x:        { label: 'Bases at 20x (%)',          min: 80.0,  max: null },
+      dedup_rate:           { label: 'Dedup Rate (%)',            min: null,  max: 30.0 },
+    },
+    wgbs: {
+      alignment_rate:       { label: 'Alignment Rate (%)',        min: 60.0,  max: null },
+      n_reads:              { label: 'Total Reads',               min: 30000000, max: null },
+      bisulfite_conversion: { label: 'Bisulfite Conversion (%)',  min: 99.0,  max: null },
+    },
+    amplicon: {
+      n_reads:              { label: 'Total Reads',               min: 1000,  max: null },
+      pct_on_target:        { label: 'On-Target Reads (%)',       min: 80.0,  max: null },
+    },
+  };
+  return base[assay] || base['rna_seq'];
+}
+
+// ── Render ──────────────────────────────────────────────────────────────────
+function renderResults() {
+  const s = currentStudy;
+
+  // Study card
+  document.getElementById('studyCard').innerHTML = `
+    <div class="study-title">${escHtml(s.title)}</div>
+    <div class="study-accession">${escHtml(s.accession)}</div>
+    <div class="meta-grid">
+      ${metaItem('Organism', s.organism)}
+      ${metaItem('Genome', genomeFromOrganism(s.organism))}
+      ${metaItem('Assay', s.assay.replace(/_/g,' ').toUpperCase())}
+      ${metaItem('Library', s.libraryLayout)}
+      ${metaItem('Read Length', s.readLength + ' bp')}
+      ${metaItem('Samples', s.nSamples.toLocaleString())}
+      ${metaItem('Platform', s.platform.replace(/_/g,' '))}
+      ${s.instrument ? metaItem('Instrument', s.instrument) : ''}
+    </div>
+  `;
+
+  // Threshold table
+  const rows = Object.entries(thresholds).map(([key, t]) => `
+    <tr>
+      <td style="color:#fff">${escHtml(t.label)}</td>
+      <td><code style="color:var(--muted);font-size:11px">${key}</code></td>
+      <td><input type="number" step="any" id="thr_min_${key}" value="${t.min ?? ''}" placeholder="—" /></td>
+      <td><input type="number" step="any" id="thr_max_${key}" value="${t.max ?? ''}" placeholder="—" /></td>
+    </tr>
+  `).join('');
+
+  document.getElementById('thresholdTable').innerHTML = `
+    <thead><tr><th>Metric</th><th>Key</th><th>Min</th><th>Max</th></tr></thead>
+    <tbody>${rows}</tbody>
+  `;
+
+  // Sample table
+  const sampleRows = currentRuns.slice(0, 30).map(r => {
+    const gb = (r.bases / 1e9).toFixed(2);
+    const m = (r.spots / 1e6).toFixed(1);
+    return `<tr>
+      <td style="color:var(--accent2)">${r.run}</td>
+      <td>${m}M</td>
+      <td>${gb} Gb</td>
+      <td><span class="badge badge-na">pending</span></td>
+    </tr>`;
+  }).join('');
+
+  const more = currentRuns.length > 30 ? `<tr><td colspan="4" style="color:var(--muted);font-style:italic;padding:12px">… and ${currentRuns.length - 30} more runs</td></tr>` : '';
+
+  document.getElementById('sampleTable').innerHTML = `
+    <thead><tr><th>Run Accession</th><th>Total Reads</th><th>Total Bases</th><th>QC Status</th></tr></thead>
+    <tbody>${sampleRows}${more}</tbody>
+  `;
+
+  renderYaml();
+  renderCli();
+  renderPython();
+
+  document.getElementById('results').classList.add('visible');
+}
+
+function metaItem(k, v) {
+  if (!v) return '';
+  return `<div class="meta-item"><div class="meta-key">${k}</div><div class="meta-val">${escHtml(String(v))}</div></div>`;
+}
+
+function regenerateYaml() {
+  // Read edited thresholds
+  for (const [key, t] of Object.entries(thresholds)) {
+    const minEl = document.getElementById('thr_min_' + key);
+    const maxEl = document.getElementById('thr_max_' + key);
+    if (minEl) thresholds[key].min = minEl.value !== '' ? parseFloat(minEl.value) : null;
+    if (maxEl) thresholds[key].max = maxEl.value !== '' ? parseFloat(maxEl.value) : null;
+  }
+  renderYaml();
+  switchTab('yaml');
+}
+
+function renderYaml() {
+  const s = currentStudy;
+  const acc = s.accession;
+  const genome = genomeFromOrganism(s.organism);
+
+  const metricLines = Object.entries(thresholds).map(([key, t]) => {
+    let rules = '';
+    if (t.min !== null && t.min !== undefined && t.min !== '') rules += `\n            min: ${t.min}`;
+    if (t.max !== null && t.max !== undefined && t.max !== '') rules += `\n            max: ${t.max}`;
+    return `          ${key}:${rules}`;
+  }).join('\n');
+
+  const yamlRaw = `studies:
+  ${acc}:
+    organism: ${s.organism}
+    genome: ${genome}
+    assay_type: ${s.assay}
+    library_layout: ${s.libraryLayout}
+    read_length_nominal: ${s.readLength}
+    n_samples_expected: ${s.nSamples}
+    platform: ${s.platform}
+
+    steps:
+      alignment:
+        metrics:
+${metricLines}
+`;
+
+  const highlighted = syntaxYaml(yamlRaw);
+  document.getElementById('yamlOutput').innerHTML = highlighted;
+  document.getElementById('yamlOutput')._raw = yamlRaw;
+}
+
+function renderCli() {
+  const s = currentStudy;
+  const txt = `# 1. Save the generated YAML as studies.yaml, then:
+
+genoexpect check \\
+  --study ${s.accession} \\
+  --config studies.yaml \\
+  --step alignment \\
+  --parser star \\
+  --input path/to/Log.final.out \\
+  --format text
+
+# JSON output:
+genoexpect check \\
+  --study ${s.accession} \\
+  --config studies.yaml \\
+  --step alignment \\
+  --parser star \\
+  --input path/to/Log.final.out \\
+  --format json`;
+  document.getElementById('cliOutput').innerHTML = escHtml(txt);
+  document.getElementById('cliOutput')._raw = txt;
+}
+
+function renderPython() {
+  const s = currentStudy;
+  const txt = `from genoexpect import Step, load_study_profile
+from genoexpect.parsers import parse_star_log
+
+# Load the auto-generated profile
+study = load_study_profile("${s.accession}", "studies.yaml")
+
+step = Step(name="alignment", study=study)
+step.log_observed(parse_star_log("path/to/Log.final.out"))
+
+result = step.check_against_expectations()
+print(result.summary())
+# → PASS / WARN / FAIL with per-metric breakdown
+
+# Markdown report
+print(result.to_markdown())
+
+# JSON
+import json
+print(json.dumps(result.to_dict(), indent=2))`;
+  document.getElementById('pythonOutput').innerHTML = escHtml(txt);
+  document.getElementById('pythonOutput')._raw = txt;
+}
+
+function syntaxYaml(raw) {
+  return escHtml(raw)
+    .replace(/^([ ]*)([\w_]+):/gm, (_, sp, key) => `${sp}<span class="yaml-key">${key}</span>:`)
+    .replace(/: (\d+\.?\d*)/g, ': <span class="yaml-num">$1</span>')
+    .replace(/: ([a-zA-Z_][\w_]*)/g, ': <span class="yaml-val">$1</span>')
+    .replace(/(#.*)/g, '<span class="yaml-comment">$1</span>');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copyYaml() { copyText(document.getElementById('yamlOutput')._raw, this); }
+function copyCli()  { copyText(document.getElementById('cliOutput')._raw,  this); }
+function copyPython(){ copyText(document.getElementById('pythonOutput')._raw, this); }
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const b = event.target;
+    const orig = b.textContent;
+    b.textContent = 'Copied!';
+    setTimeout(() => b.textContent = orig, 1500);
+  });
+}
+
+// Enter key trigger
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('accInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') fetchStudy();
+  });
+});
+</script>
+</body>
+</html>
